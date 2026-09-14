@@ -75,6 +75,13 @@ def build_rules() -> list[AnswerRule]:
                    lambda p: p.location.street),
 
         # ---- notice period (before salary: "notice period in months") ----
+        # Buyout first: "can your notice period be bought out?" contains
+        # "notice", so the generic rule below answered it with a number of
+        # days -- nonsense in a yes/no field.
+        AnswerRule("notice_buyout",
+                   _any_of("buyout", "buy out", "buy-out", "buyable",
+                           "bought out"),
+                   lambda p: p.screening.has_notice_period_buyout),
         AnswerRule("notice_months", _all_and_any(("notice",), ("month",)),
                    lambda p: p.compensation.notice_period_months),
         AnswerRule("notice_weeks", _all_and_any(("notice",), ("week",)),
@@ -264,6 +271,23 @@ def build_rules() -> list[AnswerRule]:
                                                 "immediate joiner"),
                    lambda p: p.screening.can_start_immediately),
 
+        # "passport number" wants the number itself, which is not something
+        # this tool should ever type, so only the yes/no phrasings match.
+        AnswerRule(
+            "passport",
+            lambda q: "passport" in q
+            and not _any_of("number", "no.", "expiry", "issue date")(q),
+            lambda p: p.screening.has_passport,
+        ),
+        AnswerRule("background_verification",
+                   _any_of("background verification", "bgv",
+                           "verification process"),
+                   lambda p: p.screening.willing_background_verification),
+        AnswerRule("contract_role", _any_of("contract role", "contractual",
+                                            "on contract", "c2h",
+                                            "contract to hire"),
+                   lambda p: p.screening.open_to_contract),
+
         # ---- EEO ----
         AnswerRule("gender", _any_of("gender", "sex"),
                    lambda p: p.demographics.gender),
@@ -316,6 +340,12 @@ class AnswerResolver:
         q = question.lower().strip()
         if not q:
             return None
+
+        # Your own answers win over every built-in rule, so a question the
+        # rules get wrong can be corrected in config rather than in code.
+        if (custom := self.profile.custom.match(q)) is not None:
+            return custom, "custom"
+
         for rule in self._rules:
             try:
                 if rule.matches(q):

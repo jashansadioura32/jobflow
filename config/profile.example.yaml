@@ -88,3 +88,22 @@ screening:
   has_driving_licence: "Yes"
   has_own_equipment: "Yes"          # own laptop / reliable internet
   can_start_immediately: "Yes"
+
+  has_passport: "Yes"
+  willing_background_verification: "Yes"
+  has_notice_period_buyout: "No"      # can your notice period be bought out
+  open_to_contract: "Yes"
+
+# Your own answers, for anything the built-in rules do not cover.
+#
+# The KEY is a distinctive phrase from the question (matched anywhere in it,
+# case-insensitive); the VALUE is exactly what gets filled in. Longer phrases
+# are matched first, and these beat every built-in rule -- so this is also how
+# you correct a question JobFlow answers wrongly.
+#
+# Run with -v to see the questions JobFlow could not answer, then add them here.
+custom:
+  answers:
+    # "how many years of python": "6"
+    # "are you open to a hybrid role": "Yes"
+    # "what is your father's name": "Example Name"

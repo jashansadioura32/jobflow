@@ -159,6 +159,11 @@ class ScreeningAnswers(BaseModel):
     has_own_equipment: str = "Yes"
     can_start_immediately: str = "Yes"
 
+    has_passport: str = "Yes"
+    willing_background_verification: str = "Yes"
+    has_notice_period_buyout: str = "No"
+    open_to_contract: str = "Yes"
+
     @field_validator("*")
     @classmethod
     def _yes_no_or_blank(cls, v: str) -> str:
@@ -174,6 +179,41 @@ class ScreeningAnswers(BaseModel):
         return s.title() if s else ""
 
 
+class CustomAnswers(BaseModel):
+    """Your own question-to-answer pairs, matched on a phrase.
+
+    An escape hatch for anything the built-in rules do not cover: add the
+    distinctive words of the question and the answer you want, and no Python
+    needs editing. Checked before the built-in rules, so it can also
+    override one that answers wrongly.
+
+    Longer phrases are matched first, so a specific entry beats a general
+    one no matter what order they appear in the file.
+    """
+    answers: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("answers", mode="before")
+    @classmethod
+    def _empty_section_is_not_an_error(cls, v):
+        """Treat an empty `answers:` as no answers.
+
+        The shipped example has every entry commented out, so YAML parses
+        the key as None. Rejecting that would make a fresh config fail to
+        load -- a confusing first run for something entirely optional.
+        """
+        return {} if v is None else v
+
+    def match(self, question: str) -> str | None:
+        q = question.lower().strip()
+        if not q:
+            return None
+        for phrase in sorted(self.answers, key=len, reverse=True):
+            if phrase.lower().strip() in q:
+                value = str(self.answers[phrase]).strip()
+                return value or None
+        return None
+
+
 class Profile(BaseModel):
     identity: Identity
     location: Location
@@ -183,6 +223,7 @@ class Profile(BaseModel):
     demographics: Demographics = Demographics()
     defaults: Defaults = Defaults()
     screening: ScreeningAnswers = ScreeningAnswers()
+    custom: CustomAnswers = CustomAnswers()
 
     @property
     def experience_ceiling(self) -> int:

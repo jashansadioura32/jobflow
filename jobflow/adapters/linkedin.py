@@ -576,10 +576,21 @@ class EasyApplyFiller:
             report.aborted_reason = "no Easy Apply button"
             return report
 
+        label = (button.attr("aria-label") + " " + button.text).lower()
+
+        # LinkedIn relabels the button on a job you have already applied to.
+        # Clicking it opens a confirmation dialog with no form fields and no
+        # Submit control, so the traversal below found nothing to fill, fell
+        # through to the Next/Review branch, and clicked around the dialog
+        # until MAX_STEPS -- the "clicking Reapply again and again" loop.
+        # An already-applied job is a skip, not a form to fill.
+        if "reapply" in label or "applied" in label:
+            report.aborted_reason = "already applied (LinkedIn offers Reapply)"
+            return report
+
         # An "Apply" button that is not Easy Apply hands off to the company's
         # own site. Clicking it navigates away or opens a tab, and no modal
         # ever appears -- so it is identified before the click, not after.
-        label = (button.attr("aria-label") + " " + button.text).lower()
         if "easy apply" not in label:
             report.aborted_reason = "external apply (not Easy Apply)"
             return report
@@ -625,6 +636,13 @@ class EasyApplyFiller:
                     report.submitted = True
                 return report
 
+            # A Reapply confirmation can also appear after the modal opens.
+            # It has no form and no Submit, so without this the loop below
+            # would click its controls until MAX_STEPS.
+            if self._modal_button(modal, "Reapply", "button[aria-label*='Reapply']"):
+                report.aborted_reason = "already applied (LinkedIn offers Reapply)"
+                return report
+
             # Review comes before Next: on the last step both may be present.
             nxt = (self._modal_button(modal, "Review", SEL["modal_review"])
                    or self._modal_button(modal, "Next", SEL["modal_next"])
@@ -633,6 +651,17 @@ class EasyApplyFiller:
             if nxt is None:
                 report.aborted_reason = "no next/review/submit control found"
                 return report
+
+            # A control that does not advance the form is a loop: clicking
+            # the same button twelve times is how the Reapply dialog burned
+            # a whole run. Stop as soon as the step stops changing.
+            signature = (nxt.attr("aria-label"), nxt.text, report.steps)
+            if signature[:2] == getattr(self, "_last_control", None):
+                report.aborted_reason = (
+                    f"form did not advance past {nxt.text or 'the same control'!r}")
+                return report
+            self._last_control = signature[:2]
+
             self.browser.scroll_into_view(nxt)
             self.browser.click(nxt)
             self.browser.sleep(1.0)

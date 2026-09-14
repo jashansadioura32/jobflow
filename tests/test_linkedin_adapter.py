@@ -637,8 +637,11 @@ def test_step_loop_is_bounded(profile):
     b.add_page(page)
     b.goto(page.url)
     report = EasyApplyFiller(b, profile).run(submit=True)
-    assert report.steps == EasyApplyFiller.MAX_STEPS
-    assert "exceeded" in report.aborted_reason
+    # Stops as soon as the same control reappears, rather than clicking it
+    # MAX_STEPS times: a form that does not advance is a loop, and burning
+    # twelve clicks on LinkedIn's Reapply dialog is how that showed up.
+    assert report.steps < EasyApplyFiller.MAX_STEPS
+    assert "did not advance" in report.aborted_reason
     assert report.submitted is False
 
 
@@ -750,3 +753,52 @@ def test_typeahead_detected_by_rule_name_even_for_odd_labels():
     """The rule name catches fields the label wording would miss."""
     assert EasyApplyFiller._is_typeahead("Where are you based?", "city") is True
     assert EasyApplyFiller._is_typeahead("Where are you based?", "phone") is False
+
+
+# ---------------- already-applied / Reapply ----------------
+
+def _apply_button_page(label_text, aria=""):
+    return FakePage(url="https://www.linkedin.com/jobs/search/", elements={
+        SEL["easy_apply_button"]: [
+            Element(handle=None, text=label_text,
+                    attributes={"aria-label": aria or label_text})
+        ],
+        SEL["modal"]: [Element(handle=None, attributes={"data-selector": "#m"})],
+    })
+
+
+@pytest.mark.parametrize("text,aria", [
+    ("Reapply", "Reapply to Data Lead at Acme"),
+    ("Easy Apply", "Easy Apply · Applied"),
+    ("Applied", "Applied"),
+])
+def test_already_applied_jobs_are_not_reopened(profile, text, aria):
+    """Regression: the Reapply dialog has no form and no Submit control.
+
+    Clicking into it left the traversal with nothing to fill, so it fell to
+    the Next/Review branch and clicked around the dialog until MAX_STEPS --
+    the "clicking Reapply again and again" loop.
+    """
+    b = FakeBrowser()
+    page = _apply_button_page(text, aria)
+    b.add_page(page)
+    b.goto(page.url)
+
+    report = EasyApplyFiller(b, profile).run(submit=True)
+
+    assert report.aborted_reason == "already applied (LinkedIn offers Reapply)"
+    assert report.submitted is False
+    assert b.clicks == []          # never even opened the dialog
+
+
+def test_a_normal_easy_apply_button_is_still_clicked(profile):
+    fields = [FakeField(selector="#city", label="What is your current city?")]
+    b = FakeBrowser()
+    page = _form_page(fields)
+    page.elements[SEL["text_input"]] = [_input_el(fields[0])]
+    b.add_page(page)
+    b.goto(page.url)
+
+    report = EasyApplyFiller(b, profile).run(submit=False)
+    assert report.aborted_reason is None
+    assert report.reached_submit is True

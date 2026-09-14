@@ -339,3 +339,100 @@ def test_willingness_to_travel_still_resolves(resolver):
               "Are you comfortable travelling 50%?",
               "Open to travel?"):
         assert resolver.resolve(q) == ("Yes", "travel"), q
+
+
+# ---------------- custom answers from config ----------------
+
+def _profile_with_custom(tmp_path, mapping):
+    from jobflow.core.models import CustomAnswers
+    resume = tmp_path / "r.pdf"
+    resume.write_bytes(b"%PDF-1.4")
+    return Profile(
+        identity=Identity(first_name="A", last_name="B", email="a@b.com",
+                          phone="9999999999"),
+        location=Location(city="X", country="Y"),
+        professional=Professional(years_of_experience=6, resume_path=resume),
+        compensation=Compensation(current_ctc=1, desired_salary=1,
+                                  notice_period_days=0),
+        eligibility=Eligibility(),
+        custom=CustomAnswers(answers=mapping),
+    )
+
+
+def test_custom_answer_fills_a_gap(tmp_path):
+    r = AnswerResolver(_profile_with_custom(
+        tmp_path, {"favourite programming language": "Python"}))
+    assert r.resolve("What is your favourite programming language?") == \
+        ("Python", "custom")
+
+
+def test_custom_answer_overrides_a_built_in_rule(tmp_path):
+    """The escape hatch must also fix a rule that answers wrongly."""
+    r = AnswerResolver(_profile_with_custom(tmp_path, {"gender": "Decline"}))
+    assert r.resolve("Gender") == ("Decline", "custom")
+
+
+def test_longer_phrases_win_regardless_of_file_order(tmp_path):
+    r = AnswerResolver(_profile_with_custom(tmp_path, {
+        "python": "general",
+        "years of python": "6",
+    }))
+    assert r.resolve("How many years of Python?")[0] == "6"
+    assert r.resolve("Do you know Python?")[0] == "general"
+
+
+def test_unmatched_question_still_returns_none(tmp_path):
+    r = AnswerResolver(_profile_with_custom(tmp_path, {"python": "6"}))
+    assert r.resolve("What is your favourite colour?") is None
+
+
+def test_blank_custom_value_is_ignored(tmp_path):
+    """An empty value means "not answered", so the rules still get a turn.
+
+    The notice rule is used rather than gender: this fixture's demographics
+    are blank, so the gender rule would return None too and the test could
+    not tell "custom was skipped" from "nothing matched".
+    """
+    r = AnswerResolver(_profile_with_custom(tmp_path, {"notice period": "  "}))
+    assert r.resolve("What is your notice period?") == ("0", "notice_days")
+
+
+def test_empty_custom_section_loads(tmp_path):
+    """A fully commented-out `answers:` parses as None and must not error."""
+    from jobflow.core.models import CustomAnswers
+    assert CustomAnswers(answers=None).answers == {}
+    assert CustomAnswers().match("anything") is None
+
+
+# ---------------- passport and related screening ----------------
+
+def test_passport_questions_resolve(resolver):
+    assert resolver.resolve("Do you have a valid passport?") == ("Yes", "passport")
+    assert resolver.resolve("Do you hold a passport?") == ("Yes", "passport")
+
+
+def test_passport_number_is_not_answered_yes(resolver):
+    """A number field must never receive the word "Yes"."""
+    for q in ("Passport number", "Passport no.", "Passport expiry date"):
+        got = resolver.resolve(q)
+        assert got is None or got[1] != "passport", q
+
+
+def test_notice_buyout_beats_the_generic_notice_rule(resolver):
+    """Regression: "notice" matched first and answered a yes/no with "0".
+
+    A form asking whether the notice period can be bought out received the
+    number of notice days, which is nonsense in a yes/no field.
+    """
+    for q in ("Is your notice period buyable?",
+              "Can your notice period be bought out?",
+              "Notice period buyout available?",
+              "Do you have a buyout option?"):
+        answer, rule = resolver.resolve(q)
+        assert rule == "notice_buyout", q
+        assert answer in {"Yes", "No"}, q
+
+
+def test_plain_notice_questions_still_return_days(resolver):
+    assert resolver.resolve("What is your notice period?") == ("0", "notice_days")
+    assert resolver.resolve("Notice period in months")[1] == "notice_months"

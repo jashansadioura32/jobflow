@@ -119,6 +119,24 @@ go to real employers.
 Set any of them to `""` (empty) and JobFlow will stop and ask you instead of
 answering that one itself.
 
+Below that is a **`custom`** section — your own answers for anything the
+built-in rules don't cover:
+
+```yaml
+custom:
+  answers:
+    "how many years of python": "6"
+    "are you open to a hybrid role": "Yes"
+```
+
+The key is any distinctive phrase from the question, matched anywhere in it
+and ignoring capitals. The value is exactly what gets typed in. These are
+checked **before** everything else, so this is also how you correct a
+question JobFlow answers wrongly.
+
+Run with `-v` and watch for questions it couldn't answer — then add them
+here. No code to edit.
+
 ### Optional: turn on the AI features
 
 Skip this unless you want them. Copy the secrets file and paste in your key:
@@ -316,7 +334,7 @@ top of `jobflow/adapters/linkedin.py`.
 pytest
 ```
 
-220 tests. They run against a fake browser and a stubbed AI client, so no
+234 tests. They run against a fake browser and a stubbed AI client, so no
 internet connection, no OpenAI key and no LinkedIn account are needed.
 
 ## Licence
