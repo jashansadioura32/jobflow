@@ -179,6 +179,91 @@ def build_rules() -> list[AnswerRule]:
         AnswerRule("clearance", _has("clearance"),
                    lambda p: "Yes" if p.eligibility.has_security_clearance else "No"),
 
+        # ---- standard screening questions ----
+        # Answered from explicit config, never guessed: a wrong answer to a
+        # criminal-record or non-compete question reaches an employer under
+        # your name. Ordered most-specific first, as everywhere else here.
+        AnswerRule(
+            "criminal_record",
+            _any_of("criminal", "convicted", "felony", "misdemeanor",
+                    "criminal record", "criminal history"),
+            lambda p: p.screening.criminal_record,
+        ),
+        AnswerRule(
+            "background_check",
+            lambda q: _any_of("background check", "background screening",
+                              "background verification")(q),
+            lambda p: p.screening.background_check_consent,
+        ),
+        AnswerRule("drug_test", _any_of("drug test", "drug screen"),
+                   lambda p: p.screening.drug_test_consent),
+
+        AnswerRule("night_shift", _any_of("night shift", "night shifts",
+                                          "graveyard shift", "rotational shift"),
+                   lambda p: p.screening.willing_night_shift),
+        AnswerRule("weekends", _any_of("weekend", "weekends"),
+                   lambda p: p.screening.willing_weekends),
+        AnswerRule("relocate", _any_of("relocate", "relocation"),
+                   lambda p: p.screening.willing_relocate),
+        # "travel" alone is too broad: "Travel allowance expected" wants a
+        # number, and answering "Yes" to it puts a word in a money field.
+        # Willingness phrasings alone are not enough either -- "What travel
+        # allowance do you expect?" contains "do you" -- so anything asking
+        # for an amount is excluded outright.
+        AnswerRule(
+            "travel",
+            lambda q: _any_of("travel", "travelling", "traveling")(q)
+            and not _any_of("allowance", "reimburse", "amount", "expense",
+                            "how much", "budget")(q)
+            and _any_of("willing", "able", "comfortable", "open to",
+                        "prepared", "can you", "do you")(q),
+            lambda p: p.screening.willing_travel,
+        ),
+        AnswerRule("overtime", _has("overtime"),
+                   lambda p: p.screening.willing_overtime),
+
+        # Before the generic "employed" rule: "applied ... before" is a
+        # different question from "are you employed".
+        AnswerRule(
+            "applied_before",
+            lambda q: _any_of("applied", "application")(q)
+            and _any_of("before", "previously", "past", "last 6 months",
+                        "six months", "in the last")(q),
+            lambda p: p.screening.applied_before_recently,
+        ),
+        AnswerRule(
+            "previously_employed",
+            lambda q: _any_of("previously employed", "worked for us",
+                              "worked here", "former employee",
+                              "ever been employed")(q),
+            lambda p: p.screening.previously_employed_here,
+        ),
+        AnswerRule(
+            "related_to_employee",
+            _any_of("relative", "related to", "family member", "friend who works"),
+            lambda p: p.screening.related_to_employee,
+        ),
+        AnswerRule("non_compete", _any_of("non-compete", "non compete",
+                                          "noncompete", "restrictive covenant"),
+                   lambda p: p.screening.non_compete_agreement),
+
+        AnswerRule("currently_employed", _any_of("currently employed",
+                                                 "presently employed"),
+                   lambda p: p.screening.currently_employed),
+        AnswerRule("driving_licence", _any_of("driving licence",
+                                              "driving license", "driver's licence",
+                                              "driver's license", "valid licence",
+                                              "valid license"),
+                   lambda p: p.screening.has_driving_licence),
+        AnswerRule("own_equipment", _any_of("own laptop", "own computer",
+                                            "own device", "own equipment",
+                                            "reliable internet"),
+                   lambda p: p.screening.has_own_equipment),
+        AnswerRule("start_immediately", _any_of("start immediately",
+                                                "join immediately",
+                                                "immediate joiner"),
+                   lambda p: p.screening.can_start_immediately),
+
         # ---- EEO ----
         AnswerRule("gender", _any_of("gender", "sex"),
                    lambda p: p.demographics.gender),

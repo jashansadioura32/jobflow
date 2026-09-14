@@ -58,3 +58,33 @@ demographics:
 # Fallback for numeric self-rating questions ("on a scale of 1-10...")
 defaults:
   confidence_level: 8
+
+# Standard yes/no questions that application forms ask over and over.
+# These are your real answers, so check them before your first live run.
+#
+# Use "Yes", "No", "Decline", or "" (empty) to leave a question unanswered
+# so JobFlow stops and asks you instead of guessing.
+screening:
+  # Honesty checks. Answer these truthfully -- they are verified.
+  criminal_record: "No"
+  background_check_consent: "Yes"
+  drug_test_consent: "Yes"
+
+  # What you are willing to do.
+  willing_night_shift: "Yes"
+  willing_weekends: "Yes"
+  willing_relocate: "Yes"
+  willing_travel: "Yes"
+  willing_overtime: "Yes"
+
+  # Your history with the company you are applying to.
+  applied_before_recently: "No"     # applied here in the last 6 months
+  previously_employed_here: "No"
+  related_to_employee: "No"
+  non_compete_agreement: "No"       # bound by one that would block this job
+
+  # Practical details.
+  currently_employed: "Yes"
+  has_driving_licence: "Yes"
+  has_own_equipment: "Yes"          # own laptop / reliable internet
+  can_start_immediately: "Yes"

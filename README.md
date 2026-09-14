@@ -109,6 +109,16 @@ use forward slashes `/` even on Windows.
 **`config/search.yaml`** is about the jobs — which titles to search for, which
 country, and when to skip a job. You can change these any time.
 
+At the bottom of `profile.yaml` there is a **`screening`** section. These are
+the yes/no questions application forms ask over and over — criminal record,
+willing to work night shifts, applied here in the last 6 months, happy with a
+background check, and so on. Sensible defaults are filled in, but read through
+them once and correct anything that isn't true of you, because these answers
+go to real employers.
+
+Set any of them to `""` (empty) and JobFlow will stop and ask you instead of
+answering that one itself.
+
 Now check JobFlow understood everything:
 
 ```bash
@@ -273,7 +283,7 @@ top of `jobflow/adapters/linkedin.py`.
 pytest
 ```
 
-173 tests. They run against a fake browser, so no internet connection and no
+196 tests. They run against a fake browser, so no internet connection and no
 LinkedIn account are needed.
 
 ## Licence

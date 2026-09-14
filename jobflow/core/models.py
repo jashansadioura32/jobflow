@@ -128,6 +128,52 @@ class Defaults(BaseModel):
     confidence_level: int = Field(default=8, ge=1, le=10)
 
 
+class ScreeningAnswers(BaseModel):
+    """Yes/no answers to the standard screening questions.
+
+    These are facts about you, not guesses. Each one gets an explicit value
+    rather than falling through to the guessing fallback, because a wrong
+    answer to "do you have a criminal record" reaches an employer under your
+    name and is far worse than an unanswered field.
+
+    Every value is "Yes", "No" or "" -- an empty string means "do not answer
+    this", so the question escalates instead of being invented.
+    """
+    criminal_record: str = "No"
+    background_check_consent: str = "Yes"
+    drug_test_consent: str = "Yes"
+
+    willing_night_shift: str = "Yes"
+    willing_weekends: str = "Yes"
+    willing_relocate: str = "Yes"
+    willing_travel: str = "Yes"
+    willing_overtime: str = "Yes"
+
+    applied_before_recently: str = "No"     # applied here in the last 6 months
+    previously_employed_here: str = "No"
+    related_to_employee: str = "No"
+    non_compete_agreement: str = "No"
+
+    currently_employed: str = "Yes"
+    has_driving_licence: str = "Yes"
+    has_own_equipment: str = "Yes"
+    can_start_immediately: str = "Yes"
+
+    @field_validator("*")
+    @classmethod
+    def _yes_no_or_blank(cls, v: str) -> str:
+        """Reject anything that is not a usable answer, at load time.
+
+        A typo like "Ye" would otherwise fail silently against the form's
+        options and leave the question unanswered mid-run.
+        """
+        s = (v or "").strip()
+        if s and s.lower() not in {"yes", "no", "decline"}:
+            raise ValueError(
+                f'must be "Yes", "No", "Decline" or "" (empty), not {v!r}')
+        return s.title() if s else ""
+
+
 class Profile(BaseModel):
     identity: Identity
     location: Location
@@ -136,6 +182,7 @@ class Profile(BaseModel):
     eligibility: Eligibility
     demographics: Demographics = Demographics()
     defaults: Defaults = Defaults()
+    screening: ScreeningAnswers = ScreeningAnswers()
 
     @property
     def experience_ceiling(self) -> int:

@@ -230,3 +230,112 @@ def test_linkedin_link_still_beats_the_generic_link_rule(resolver):
 def test_specific_link_words_still_win(resolver):
     for q in ("GitHub link", "Blog link", "Portfolio website"):
         assert resolver.resolve(q)[1] == "website", q
+
+
+# ---------------- standard screening questions ----------------
+
+@pytest.mark.parametrize("question,expected,rule", [
+    ("Do you have any criminal records?", "No", "criminal_record"),
+    ("Have you ever been convicted of a felony?", "No", "criminal_record"),
+    ("Are you comfortable with a background check?", "Yes", "background_check"),
+    ("Will you consent to a drug test?", "Yes", "drug_test"),
+    ("Are you willing to work night shifts?", "Yes", "night_shift"),
+    ("Can you work weekends?", "Yes", "weekends"),
+    ("Are you willing to relocate?", "Yes", "relocate"),
+    ("Are you willing to travel?", "Yes", "travel"),
+    ("Willing to work overtime?", "Yes", "overtime"),
+    ("Have you applied to this organization in the last 6 months?",
+     "No", "applied_before"),
+    ("Have you previously employed with us?", "No", "previously_employed"),
+    ("Do you have any relatives working here?", "No", "related_to_employee"),
+    ("Are you bound by a non-compete agreement?", "No", "non_compete"),
+    ("Are you currently employed?", "Yes", "currently_employed"),
+    ("Do you have a valid driving licence?", "Yes", "driving_licence"),
+    ("Do you have your own laptop?", "Yes", "own_equipment"),
+    ("Can you join immediately?", "Yes", "start_immediately"),
+])
+def test_screening_questions_resolve(resolver, question, expected, rule):
+    got = resolver.resolve(question)
+    assert got is not None, f"no rule matched {question!r}"
+    assert got == (expected, rule)
+
+
+def test_screening_answers_come_from_config_not_a_guess(tmp_path):
+    """Changing the config must change the answer -- these are facts."""
+    from jobflow.core.models import ScreeningAnswers
+    resume = tmp_path / "r.pdf"
+    resume.write_bytes(b"%PDF-1.4")
+    p = Profile(
+        identity=Identity(first_name="A", last_name="B", email="a@b.com",
+                          phone="9999999999"),
+        location=Location(city="X", country="Y"),
+        professional=Professional(years_of_experience=1, resume_path=resume),
+        compensation=Compensation(current_ctc=1, desired_salary=1,
+                                  notice_period_days=0),
+        eligibility=Eligibility(),
+        screening=ScreeningAnswers(willing_relocate="No", criminal_record="Yes"),
+    )
+    r = AnswerResolver(p)
+    assert r.resolve("Are you willing to relocate?")[0] == "No"
+    assert r.resolve("Do you have any criminal records?")[0] == "Yes"
+
+
+def test_blank_screening_answer_escalates(tmp_path):
+    """An empty value means "ask me", not "answer anyway"."""
+    from jobflow.core.models import ScreeningAnswers
+    resume = tmp_path / "r.pdf"
+    resume.write_bytes(b"%PDF-1.4")
+    p = Profile(
+        identity=Identity(first_name="A", last_name="B", email="a@b.com",
+                          phone="9999999999"),
+        location=Location(city="X", country="Y"),
+        professional=Professional(years_of_experience=1, resume_path=resume),
+        compensation=Compensation(current_ctc=1, desired_salary=1,
+                                  notice_period_days=0),
+        eligibility=Eligibility(),
+        screening=ScreeningAnswers(criminal_record=""),
+    )
+    assert AnswerResolver(p).resolve("Do you have any criminal records?") is None
+
+
+def test_screening_values_are_validated_at_load_time(tmp_path):
+    """A typo must fail loudly at startup, not silently mid-application."""
+    import pydantic
+    from jobflow.core.models import ScreeningAnswers
+
+    for bad in ("Ye", "maybe", "y", "true"):
+        with pytest.raises(pydantic.ValidationError):
+            ScreeningAnswers(criminal_record=bad)
+
+    # Case and spacing are forgiven, since they are harmless.
+    assert ScreeningAnswers(criminal_record=" no ").criminal_record == "No"
+
+
+def test_applied_before_beats_currently_employed(resolver):
+    """Ordering: "applied before" and "currently employed" both mention work."""
+    assert resolver.resolve(
+        "Have you applied to this company before?")[1] == "applied_before"
+    assert resolver.resolve("Are you currently employed?")[1] == "currently_employed"
+
+
+def test_travel_allowance_is_never_answered_yes(resolver):
+    """Regression: a money question must not get a yes/no answer.
+
+    "What travel allowance do you expect?" contains both "travel" and
+    "do you", so a willingness-phrasing check alone let it through and put
+    the word "Yes" into a field expecting a number.
+    """
+    for q in ("Travel allowance expected",
+              "Travel reimbursement amount",
+              "What travel allowance do you expect?",
+              "How much travel expense do you claim?",
+              "Travel budget required"):
+        assert resolver.resolve(q) is None, q
+
+
+def test_willingness_to_travel_still_resolves(resolver):
+    for q in ("Are you willing to travel?",
+              "Can you travel for work?",
+              "Are you comfortable travelling 50%?",
+              "Open to travel?"):
+        assert resolver.resolve(q) == ("Yes", "travel"), q
