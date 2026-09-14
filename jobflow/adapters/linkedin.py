@@ -344,9 +344,6 @@ class LinkedInSearch:
             data["company"] = self.browser.text_of(company_el).strip() if company_el else ""
         return JobPosting.model_validate(data)
 
-    def has_easy_apply(self) -> bool:
-        return self.browser.find(SEL["easy_apply_button"]) is not None
-
 
 # --------------------------------------------------------------------------
 # Easy Apply
