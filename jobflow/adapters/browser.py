@@ -64,6 +64,7 @@ class Browser(Protocol):
     def scroll_into_view(self, element: Element) -> None: ...
     def sleep(self, seconds: float) -> None: ...
     def press_escape(self) -> None: ...
+    def commit_typeahead(self, element: Element, pause: float = 2.0) -> None: ...
     def find_by_text(self, text: str) -> Element | None: ...
     def find_by_text_within(self, root: Element, text: str) -> Element | None: ...
     def quit(self) -> None: ...
@@ -410,6 +411,31 @@ class SeleniumBrowser:
             )
         except Exception:
             pass
+
+    def commit_typeahead(self, element: Element, pause: float = 2.0) -> None:
+        """Pick the first suggestion from an autocomplete dropdown.
+
+        LinkedIn's city and address fields are typeaheads: typing "Gurugram"
+        leaves the box looking filled while the form holds no value at all,
+        because nothing was chosen from the list. The value is only committed
+        when a suggestion is selected, so after typing we wait for the
+        dropdown to render, then press Down and Enter to take the first one.
+
+        The pause is not optional -- the list is fetched over the network,
+        and pressing Down before it appears selects nothing.
+        """
+        from selenium.webdriver.common.action_chains import ActionChains
+        from selenium.webdriver.common.keys import Keys
+        try:
+            time.sleep(pause)
+            actions = ActionChains(self._driver)
+            actions.send_keys(Keys.ARROW_DOWN)
+            actions.send_keys(Keys.ENTER)
+            actions.perform()
+        except Exception as e:
+            # A field that was not a typeahead after all keeps the typed
+            # text; failing here must not abandon the whole application.
+            log.debug("Could not commit typeahead selection: %s", e)
 
     def press_escape(self) -> None:
         """Send Escape to the page, closing whatever modal is open."""

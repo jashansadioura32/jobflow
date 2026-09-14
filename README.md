@@ -273,7 +273,7 @@ top of `jobflow/adapters/linkedin.py`.
 pytest
 ```
 
-162 tests. They run against a fake browser, so no internet connection and no
+173 tests. They run against a fake browser, so no internet connection and no
 LinkedIn account are needed.
 
 ## Licence

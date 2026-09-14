@@ -475,11 +475,39 @@ class EasyApplyFiller:
             if resolved:
                 value, rule = resolved
                 self.browser.type_text(text_el, value)
+                if self._is_typeahead(label, rule):
+                    self.browser.commit_typeahead(text_el)
                 report.answered[label] = value
                 if rule == "guess":
                     report.guessed[label] = value
             else:
                 report.unanswered.append(label)
+
+    # Rules whose fields LinkedIn renders as an autocomplete. Typing into one
+    # of these leaves the box looking filled while the form holds no value,
+    # so the suggestion has to be selected from the dropdown.
+    _TYPEAHEAD_RULES = frozenset({"city", "state", "country", "street"})
+    # "address" alone is too broad: it matches "Email address", where pressing
+    # Enter can submit the form early. The place-specific phrasings are listed
+    # instead, and email is excluded outright.
+    _TYPEAHEAD_WORDS = ("city", "location", "town",
+                        "street address", "address line", "postal address")
+    _NEVER_TYPEAHEAD = ("email", "e-mail")
+
+    @classmethod
+    def _is_typeahead(cls, label: str, rule: str) -> bool:
+        """Whether this field needs a dropdown selection to commit its value.
+
+        Matched two ways because either alone is fragile: the rule name is
+        precise but misses an unmapped field that was guessed, and the label
+        words catch phrasings no rule covers.
+        """
+        low = label.lower()
+        if any(word in low for word in cls._NEVER_TYPEAHEAD):
+            return False
+        if rule in cls._TYPEAHEAD_RULES:
+            return True
+        return any(word in low for word in cls._TYPEAHEAD_WORDS)
 
     def _modal_button(self, modal: Element | None, text: str,
                       css_fallback: str) -> Element | None:

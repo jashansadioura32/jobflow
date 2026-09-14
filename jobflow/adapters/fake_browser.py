@@ -46,6 +46,8 @@ class FakeBrowser:
         self.visited: list[str] = []
         self.quit_called = False
         self.waited: list[str] = []
+        # Fields whose autocomplete dropdown was committed with Down+Enter.
+        self.typeahead_committed: list[str] = []
         # selector -> polls it survives before "the human" closes it.
         self.closes_after: dict[str, int] = {}
 
@@ -183,6 +185,11 @@ class FakeBrowser:
 
     def press_escape(self) -> None:
         self.clicks.append("<escape>")
+
+    def commit_typeahead(self, element: Element, pause: float = 2.0) -> None:
+        """Record that a dropdown suggestion was accepted for this field."""
+        key = element.attr("data-selector") or element.attr("aria-label")
+        self.typeahead_committed.append(key)
 
     def find_by_text(self, text: str) -> Element | None:
         """Match an element by visible text, as the real browser's XPath does."""

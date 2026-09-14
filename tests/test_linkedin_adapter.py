@@ -691,3 +691,62 @@ def test_cards_without_a_footer_state_are_kept(config):
     b = _card_page(config, [None, None])
     got = LinkedInSearch(b, config).collect("Data Quality Lead", limit=10)
     assert len(got) == 2
+
+
+# ---------------- typeahead / autocomplete fields ----------------
+
+def test_location_field_selects_from_the_dropdown(profile):
+    """Regression: typing a city is not the same as choosing one.
+
+    LinkedIn's location field is an autocomplete. Typing "Springfield"
+    leaves the box looking filled while the form holds no value at all, so
+    the application is rejected. The suggestion must be committed with
+    Down+Enter after the dropdown renders.
+    """
+    field = FakeField(selector="#city", label="What is your current city?",
+                      required=True)
+    b = FakeBrowser()
+    page = _form_page([field])
+    page.elements[SEL["text_input"]] = [_input_el(field)]
+    b.add_page(page)
+    b.goto(page.url)
+
+    report = EasyApplyFiller(b, profile).run(submit=False)
+
+    assert report.answered["What is your current city?"] == "Springfield"
+    assert "#city" in b.typeahead_committed
+
+
+def test_plain_text_fields_are_not_treated_as_typeaheads(profile):
+    """A phone box has no dropdown; pressing Enter in one submits the form."""
+    field = FakeField(selector="#phone", label="Mobile phone number",
+                      required=True)
+    b = FakeBrowser()
+    page = _form_page([field])
+    page.elements[SEL["text_input"]] = [_input_el(field)]
+    b.add_page(page)
+    b.goto(page.url)
+
+    EasyApplyFiller(b, profile).run(submit=False)
+
+    assert b.typeahead_committed == []
+
+
+@pytest.mark.parametrize("label,expected", [
+    ("What is your current city?", True),
+    ("City", True),
+    ("Current location", True),
+    ("Street address", True),
+    ("Home town", True),
+    ("Mobile phone number", False),
+    ("Years of experience", False),
+    ("Email address", False),
+])
+def test_typeahead_detection(label, expected):
+    assert EasyApplyFiller._is_typeahead(label, "unmapped") is expected
+
+
+def test_typeahead_detected_by_rule_name_even_for_odd_labels():
+    """The rule name catches fields the label wording would miss."""
+    assert EasyApplyFiller._is_typeahead("Where are you based?", "city") is True
+    assert EasyApplyFiller._is_typeahead("Where are you based?", "phone") is False
