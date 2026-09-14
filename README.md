@@ -17,7 +17,7 @@ your profile, and keeps an audit log of every decision.
 ## Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/jobflow.git
+git clone https://github.com/jashansadioura32/jobflow.git
 cd jobflow
 
 python -m venv .venv
