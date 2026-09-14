@@ -306,6 +306,9 @@ class JobPosting(BaseModel):
     location: str = ""
     url: str = ""
     description: str = ""
+    # Never populated: nothing extracts it from a card and nothing reads it.
+    # Kept only so old evidence logs still load; do not rely on it.
+    # (SearchFilters.workplace_types is the separate, working URL filter.)
     workplace_type: str = ""
     experience_required: int | None = None
 

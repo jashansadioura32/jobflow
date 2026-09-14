@@ -627,8 +627,12 @@ class EasyApplyFiller:
                                                  SEL["modal_submit"])):
                 report.reached_submit = True
                 if report.unanswered:
+                    # Name them: these are exactly the questions to paste into
+                    # the `custom` section of profile.yaml, and a bare count
+                    # left the audit log unable to say which they were.
                     report.aborted_reason = (
-                        f"{len(report.unanswered)} unanswered question(s)"
+                        f"{len(report.unanswered)} unanswered: "
+                        + "; ".join(report.unanswered[:3])
                     )
                     return report
                 if submit:

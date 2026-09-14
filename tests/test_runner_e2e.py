@@ -359,3 +359,23 @@ def test_no_answerer_without_an_llm_scorer(profile, config, tmp_path):
     runner = LinkedInRunner(FakeBrowser(), profile, config, audit,
                             dry_run=False, auto_submit=True)
     assert runner.filler.answerer is None
+
+
+def test_unanswered_questions_are_named_in_the_audit(profile, config, tmp_path):
+    """A bare count cannot tell you what to add to the custom section.
+
+    The reason reaching the evidence log must name the questions, not just
+    how many there were.
+    """
+    b = FakeBrowser()
+    _wire(b, config, "800", "5+ years of experience.", answerable=False)
+    audit = AuditLog(tmp_path / "data", run_id="named-unanswered")
+
+    runner = LinkedInRunner(b, profile, config, audit,
+                            approval_gate=lambda ev: True, dry_run=True)
+    results = runner.run(prompt=lambda _: "")
+
+    detail = [f.detail for f in results[0].findings
+              if f.dimension == "submission"][0]
+    assert "unanswered" in detail
+    assert "Describe a conflict" in detail, detail
