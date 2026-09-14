@@ -359,6 +359,9 @@ class FillReport:
     # Answers that were guessed rather than resolved from the profile, kept
     # separate so the evidence log can show exactly what was invented.
     guessed: dict[str, str] = field(default_factory=dict)
+    # Answers written by the LLM worker. Separate from `guessed` because the
+    # two have very different failure modes and deserve different scrutiny.
+    ai_answered: dict[str, str] = field(default_factory=dict)
     unanswered: list[str] = field(default_factory=list)
     uploaded_resume: bool = False
     steps: int = 0
@@ -387,6 +390,7 @@ class EasyApplyFiller:
         profile: Profile,
         resolver: AnswerResolver | None = None,
         guess_unmapped: bool = False,
+        answerer=None,
     ) -> None:
         self.browser = browser
         self.profile = profile
@@ -394,6 +398,12 @@ class EasyApplyFiller:
         # With no human in the loop, refusing to answer blocks the whole
         # application. Guessing is opt-in and every guess is recorded.
         self.guess_unmapped = guess_unmapped
+        # Optional LLM fallback, tried before the crude guess. Only supplied
+        # when nobody is watching -- under --review the question escalates to
+        # a person instead, whose answer beats a generated one.
+        self.answerer = answerer
+        # Set per posting so the model can use the job description.
+        self.current_posting = None
 
     # -- field helpers ---------------------------------------------------
 
@@ -437,13 +447,16 @@ class EasyApplyFiller:
             options = self.browser.options_for(sel_el)
             resolved = self.resolver.resolve_choice(label, options)
             if not resolved and self.guess_unmapped:
-                resolved = self.resolver.guess_choice(options)
+                resolved = self._ai_answer(label, options) \
+                    or self.resolver.guess_choice(options)
             if resolved:
                 value, rule = resolved
                 self.browser.select_option(sel_el, value)
                 report.answered[label] = value
                 if rule == "guess":
                     report.guessed[label] = value
+                elif rule == "ai":
+                    report.ai_answered[label] = value
             elif required or options:
                 report.unanswered.append(label)
             return
@@ -454,7 +467,8 @@ class EasyApplyFiller:
             options = [r.attr("value") or r.text for r in radios]
             resolved = self.resolver.resolve_choice(label, options)
             if not resolved and self.guess_unmapped:
-                resolved = self.resolver.guess_choice(options)
+                resolved = self._ai_answer(label, options) \
+                    or self.resolver.guess_choice(options)
             if resolved:
                 value, rule = resolved
                 for r in radios:
@@ -463,6 +477,8 @@ class EasyApplyFiller:
                         report.answered[label] = value
                         if rule == "guess":
                             report.guessed[label] = value
+                        elif rule == "ai":
+                            report.ai_answered[label] = value
                         return
             report.unanswered.append(label)
             return
@@ -471,7 +487,7 @@ class EasyApplyFiller:
         if (text_el := self.browser.find_within(group, SEL["text_input"])):
             resolved = self.resolver.resolve(label)
             if not resolved and self.guess_unmapped and required:
-                resolved = self.resolver.guess_text(label)
+                resolved = self._ai_answer(label) or self.resolver.guess_text(label)
             if resolved:
                 value, rule = resolved
                 self.browser.type_text(text_el, value)
@@ -480,8 +496,23 @@ class EasyApplyFiller:
                 report.answered[label] = value
                 if rule == "guess":
                     report.guessed[label] = value
+                elif rule == "ai":
+                    report.ai_answered[label] = value
             else:
                 report.unanswered.append(label)
+
+    def _ai_answer(self, label: str, options: list[str] | None = None):
+        """Ask the LLM worker, if one was supplied. Returns (answer, rule).
+
+        Shaped like a resolver result so the caller can fall through to the
+        deterministic guess with `or`. The rule name is "ai" rather than
+        "guess" so the audit log distinguishes the two.
+        """
+        if self.answerer is None or not self.answerer.enabled:
+            return None
+        answer = self.answerer.answer(label, options=options,
+                                      posting=self.current_posting)
+        return (answer, "ai") if answer else None
 
     # Rules whose fields LinkedIn renders as an autocomplete. Typing into one
     # of these leaves the box looking filled while the form holds no value,

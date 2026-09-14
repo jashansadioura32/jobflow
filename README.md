@@ -214,7 +214,7 @@ skipped and why — both in the terminal and in a window.
 | `--review` | Check each application yourself before it's sent |
 | `--review-timeout 300` | Wait 5 minutes for your decision instead of 10 |
 | `--keep-open` | Leave Chrome open when it finishes |
-| `--use-llm` | Let an AI rate how well each job matches you (needs an OpenAI key) |
+| `--use-llm` | Let an AI rate how well each job matches you, and answer questions your profile doesn't cover (needs an OpenAI key) |
 
 Other things you can run:
 
@@ -266,6 +266,15 @@ Practise with Step 5 first.
 plausible guess rather than stopping the whole application. Every guess is
 written down. Use `--review` if you'd rather decide yourself.
 
+**`--use-llm --live` lets an AI write answers.** For a question your profile
+doesn't cover, an AI writes one using your details and the job description —
+a better answer than the plain guess, but still a machine writing in your
+name. It is told to refuse rather than invent, and anything too long, or an
+option that isn't on the form, is thrown away. Each one is logged separately
+as `AI answered`, so run with `-v` and read them. This never happens under
+`--review` or in a practice run: when you are there to be asked, you get
+asked.
+
 **JobFlow never sees your password.** You log in yourself, in your own browser.
 
 **LinkedIn may not like this.** Automated applications can go against
@@ -283,8 +292,8 @@ top of `jobflow/adapters/linkedin.py`.
 pytest
 ```
 
-196 tests. They run against a fake browser, so no internet connection and no
-LinkedIn account are needed.
+211 tests. They run against a fake browser and a stubbed AI client, so no
+internet connection, no OpenAI key and no LinkedIn account are needed.
 
 ## Licence
 

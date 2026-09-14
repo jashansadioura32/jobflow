@@ -318,3 +318,44 @@ def test_audit_written_for_every_posting(profile, config, tmp_path):
 
     assert audit.evidence_path.exists()
     assert audit.evidence_path.read_text(encoding="utf-8").strip()
+
+
+# ---------------- the LLM answerer is wired only when unattended ----------
+
+class _StubScorer:
+    enabled = True
+    client = object()
+    model = "gpt-4o-mini"
+
+    def score(self, posting):
+        return None
+
+    def recommends_skip(self, fit):
+        return False
+
+
+def test_ai_answerer_is_used_only_when_nobody_is_watching(profile, config, tmp_path):
+    """Under --review a person answers the question, which beats a guess."""
+    audit = AuditLog(tmp_path / "data", run_id="ai-wiring")
+
+    unattended = LinkedInRunner(FakeBrowser(), profile, config, audit,
+                                scorer=_StubScorer(), dry_run=False,
+                                auto_submit=True)
+    assert unattended.filler.answerer is not None
+
+    reviewing = LinkedInRunner(FakeBrowser(), profile, config, audit,
+                               scorer=_StubScorer(), dry_run=False,
+                               auto_submit=False)
+    assert reviewing.filler.answerer is None
+
+    dry = LinkedInRunner(FakeBrowser(), profile, config, audit,
+                         scorer=_StubScorer(), dry_run=True, auto_submit=True)
+    assert dry.filler.answerer is None
+
+
+def test_no_answerer_without_an_llm_scorer(profile, config, tmp_path):
+    """--use-llm is what supplies the client; without it there is no answerer."""
+    audit = AuditLog(tmp_path / "data", run_id="ai-none")
+    runner = LinkedInRunner(FakeBrowser(), profile, config, audit,
+                            dry_run=False, auto_submit=True)
+    assert runner.filler.answerer is None

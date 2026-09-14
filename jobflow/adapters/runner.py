@@ -46,8 +46,18 @@ class LinkedInRunner:
         self.session = LinkedInSession(browser)
         self.search = LinkedInSearch(browser, config)
         # Guessing only makes sense when nobody is watching to be asked.
+        unattended = auto_submit and not dry_run
+        # The LLM answerer reuses the scorer's client rather than building a
+        # second one, and is only supplied when unattended: under --review a
+        # person answers the question, which beats a generated answer.
+        answerer = None
+        if unattended and scorer is not None and getattr(scorer, "enabled", False):
+            from jobflow.workers.question_answerer import QuestionAnswerer
+            answerer = QuestionAnswerer(profile, client=scorer.client,
+                                        model=scorer.model)
         self.filler = EasyApplyFiller(browser, profile,
-                                      guess_unmapped=auto_submit and not dry_run)
+                                      guess_unmapped=unattended,
+                                      answerer=answerer)
         self.pipeline = Pipeline(
             profile, config, audit, scorer=scorer, approval_gate=approval_gate
         )
@@ -72,6 +82,9 @@ class LinkedInRunner:
         mapping can be checked without sending anything.
         """
         send = self.auto_submit and not self.dry_run
+        # Gives the LLM worker the job description as context for any
+        # question the profile cannot answer.
+        self.filler.current_posting = posting
         report = self.filler.run(submit=send)
 
         if report.unanswered:
@@ -80,6 +93,14 @@ class LinkedInRunner:
                 posting.job_id, len(report.unanswered),
                 "; ".join(report.unanswered[:3]),
             )
+        if report.ai_answered:
+            # Written by a model, not taken from your profile. Listed
+            # separately from crude guesses: different failure modes,
+            # different scrutiny.
+            log.warning("%s: AI answered %d question(s): %s",
+                        posting.job_id, len(report.ai_answered),
+                        "; ".join(f"{k} -> {v}"
+                                  for k, v in report.ai_answered.items()))
         if report.guessed:
             # Guesses are the answers you did not choose; name every one.
             log.warning("%s: guessed %d answer(s): %s",
