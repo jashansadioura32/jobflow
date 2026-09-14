@@ -193,9 +193,15 @@ class LinkedInRunner:
             # posting is opened by clicking its card, which loads the detail
             # pane the Easy Apply button lives in.
             enriched: list[JobPosting] = []
-            known = self.audit.applied_job_ids()
+            # Applied already, or opened before and found to be external-apply:
+            # either way there is nothing to gain by clicking into it again.
+            # Jobs screened out by the rules are deliberately NOT remembered,
+            # so raising your experience ceiling brings them straight back.
+            known = self.audit.skip_on_sight_ids()
             for p, card in found:
                 if p.job_id in known:
+                    log.info("Skipping %s: already applied or cannot be "
+                             "applied to via Easy Apply.", p.job_id)
                     continue
                 try:
                     enriched.append(self.search.load_description(p, card))

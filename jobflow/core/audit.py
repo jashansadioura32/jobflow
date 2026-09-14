@@ -92,6 +92,54 @@ class AuditLog:
                         ids.add(jid)
         return ids
 
+    # Failures that no amount of retrying will fix: the job does not use
+    # Easy Apply at all, so LinkedIn hands off to the employer's own site.
+    # Everything else (a validation error, an unanswered question) may work
+    # after a selector fix or a new answer rule, so it stays retryable.
+    _PERMANENT_FAILURES = (
+        "no easy apply button",
+        "external apply",
+        "modal did not open",
+    )
+
+    def permanently_failed_job_ids(self) -> set[str]:
+        """Job IDs that were opened and can never succeed.
+
+        Read from the evidence logs rather than the CSV because the failure
+        reason is only recorded there. Every run writes its own evidence
+        file, so all of them are scanned -- at a few hundred rows per run
+        that is far cheaper than re-opening a job that cannot work.
+        """
+        ids: set[str] = set()
+        for path in self.data_dir.glob("evaluations_*.jsonl"):
+            try:
+                with path.open(encoding="utf-8") as f:
+                    for line in f:
+                        try:
+                            rec = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if rec.get("decision") != Decision.NEEDS_HUMAN.value:
+                            continue
+                        details = " ".join(
+                            str(finding.get("detail", "")).lower()
+                            for finding in rec.get("findings", [])
+                            if finding.get("dimension") == "submission"
+                        )
+                        if any(p in details for p in self._PERMANENT_FAILURES):
+                            jid = str(rec.get("posting", {}).get("job_id", "")).strip()
+                            if jid:
+                                ids.add(jid)
+            except OSError:
+                # An unreadable evidence file costs a repeated application,
+                # never a failed run.
+                continue
+        return ids
+
+    def skip_on_sight_ids(self) -> set[str]:
+        """Every job this run should not open: applied, or hopeless."""
+        return self.applied_job_ids() | self.permanently_failed_job_ids()
+
     def summarize(self) -> dict[str, int]:
         counts: dict[str, int] = {}
         if not self.evidence_path.exists():

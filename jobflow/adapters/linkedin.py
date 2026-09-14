@@ -260,7 +260,17 @@ class LinkedInSearch:
             href = (link.attr("href") if link else "") or ""
             job_id = extract_job_id(href) or card.attr("data-job-id") \
                 or card.attr("data-occludable-job-id")
-            if not job_id or job_id in seen:
+            if not job_id:
+                # Never silent: a card whose id cannot be read is dropped
+                # before any audit record exists, so this log line is the
+                # only evidence it was ever seen. Promoted cards at the top
+                # of the results use different markup, which is exactly
+                # where an unreadable id would cost the best matches.
+                preview = " ".join(card.text.split())[:60]
+                log.warning("Skipping a card with no readable job id "
+                            "(markup may have changed): %r", preview)
+                continue
+            if job_id in seen:
                 continue
             seen.add(job_id)
 

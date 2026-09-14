@@ -188,3 +188,89 @@ def test_dedupe_across_runs(profile, config, audit, tmp_path):
     p2 = Pipeline(profile, config, audit2, approval_gate=lambda ev: True)
     results = p2.process(jobs(2), submit=lambda j: True)
     assert all(r.skip_reason is SkipReason.ALREADY_APPLIED for r in results)
+
+
+# ---------------- remembering what not to re-open ----------------
+
+def _evidence(tmp_path, *records):
+    """Write an evidence log the way AuditLog.record would."""
+    import json
+    from jobflow.core.audit import AuditLog
+    a = AuditLog(tmp_path, run_id="fixture")
+    with a.evidence_path.open("w", encoding="utf-8") as f:
+        for rec in records:
+            f.write(json.dumps(rec) + "\n")
+    return a
+
+
+def _rec(job_id, decision, submission_detail=None):
+    findings = []
+    if submission_detail is not None:
+        findings.append({"dimension": "submission", "detail": submission_detail,
+                         "passed": False, "source": "deterministic",
+                         "severity": "blocker"})
+    return {"decision": decision, "posting": {"job_id": job_id},
+            "findings": findings}
+
+
+def test_external_apply_jobs_are_never_reopened(tmp_path):
+    """A job with no Easy Apply button can never work, so stop opening it."""
+    audit = _evidence(
+        tmp_path,
+        _rec("111", "needs_human", "no Easy Apply button"),
+        _rec("222", "needs_human",
+             "Easy Apply modal did not open (external apply, or the modal "
+             "selector is stale)"),
+        _rec("333", "needs_human", "external apply (not Easy Apply)"),
+    )
+    assert audit.permanently_failed_job_ids() == {"111", "222", "333"}
+
+
+def test_fixable_failures_stay_retryable(tmp_path):
+    """A validation error or unanswered question may work after a fix.
+
+    Remembering these would permanently blacklist jobs that a new answer
+    rule or selector fix would rescue.
+    """
+    audit = _evidence(
+        tmp_path,
+        _rec("444", "needs_human", "form reported a validation error: required"),
+        _rec("555", "needs_human", "1 unanswered: Describe a conflict"),
+        _rec("666", "needs_human", "submission failed"),
+    )
+    assert audit.permanently_failed_job_ids() == set()
+
+
+def test_screened_out_jobs_are_not_remembered(tmp_path):
+    """Rules-based skips must re-evaluate, so a config change takes effect."""
+    audit = _evidence(
+        tmp_path,
+        _rec("777", "skip"),
+        _rec("888", "skip", "no Easy Apply button"),   # skip, not needs_human
+    )
+    assert audit.permanently_failed_job_ids() == set()
+
+
+def test_skip_on_sight_unions_applied_and_hopeless(tmp_path, profile, config):
+    """Both sets contribute: neither subsumes the other."""
+    from jobflow.core.audit import AuditLog
+    from jobflow.core.models import Evaluation, JobPosting
+
+    audit = AuditLog(tmp_path, run_id="union")
+    # An applied job goes to the CSV; a hopeless one to the evidence log.
+    ev = Evaluation(posting=JobPosting(job_id="999", title="T", company="C"),
+                    decision=Decision.APPLY)
+    audit.record(ev)
+    with audit.evidence_path.open("a", encoding="utf-8") as f:
+        import json
+        f.write(json.dumps(_rec("111", "needs_human", "no Easy Apply button")) + "\n")
+
+    assert audit.applied_job_ids() == {"999"}
+    assert audit.permanently_failed_job_ids() == {"111"}
+    assert audit.skip_on_sight_ids() == {"999", "111"}
+
+
+def test_missing_evidence_files_are_not_an_error(tmp_path):
+    """A fresh install has no logs at all; that must not raise."""
+    from jobflow.core.audit import AuditLog
+    assert AuditLog(tmp_path, run_id="empty").permanently_failed_job_ids() == set()
