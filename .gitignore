@@ -1,3 +1,9 @@
+# --- secrets ----------------------------------------------------------------
+# Your API keys. Never commit this; .env.example is committed instead.
+.env
+.env.*
+!.env.example
+
 # --- your personal configuration -------------------------------------------
 # These hold your name, phone, salary and address. The .example files are
 # committed instead; copy them and fill in your own details.

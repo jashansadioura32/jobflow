@@ -208,3 +208,49 @@ def test_company_age_is_not_mistaken_for_a_requirement(profile, config):
 
     assert extract_years_required(
         "The company has 30 years of excellence in the market.") is None
+
+
+# ---------------- resume text extraction ----------------
+
+def test_extract_text_reads_a_text_file(tmp_path):
+    from jobflow.core.resume import extract_text
+    f = tmp_path / "cv.txt"
+    f.write_text("Data Product Manager. Snowflake, dbt.", encoding="utf-8")
+    assert "Snowflake" in extract_text(f)
+
+
+def test_extract_text_returns_empty_for_a_missing_file(tmp_path):
+    """Never raises: a missing CV degrades to the profile summary."""
+    from jobflow.core.resume import extract_text
+    assert extract_text(tmp_path / "nope.pdf") == ""
+
+
+def test_extract_text_returns_empty_for_an_unreadable_format(tmp_path):
+    from jobflow.core.resume import extract_text
+    f = tmp_path / "cv.docx"
+    f.write_bytes(b"PK\x03\x04not really a docx")
+    assert extract_text(f) == ""
+
+
+def test_extract_text_survives_a_corrupt_pdf(tmp_path):
+    from jobflow.core.resume import extract_text
+    f = tmp_path / "cv.pdf"
+    f.write_bytes(b"%PDF-1.4 this is not a valid pdf body")
+    assert extract_text(f) == ""
+
+
+def test_resume_text_is_extracted_once_and_cached(tmp_path):
+    from jobflow.core.resume import ResumeText
+    f = tmp_path / "cv.txt"
+    f.write_text("original", encoding="utf-8")
+    r = ResumeText(f)
+    assert "original" in r.text
+    f.write_text("changed", encoding="utf-8")
+    assert "original" in r.text      # cached, not re-read per question
+
+
+def test_resume_text_stringifies_to_its_content(tmp_path):
+    from jobflow.core.resume import ResumeText
+    f = tmp_path / "cv.txt"
+    f.write_text("Snowflake and dbt.", encoding="utf-8")
+    assert str(ResumeText(f)) == "Snowflake and dbt."

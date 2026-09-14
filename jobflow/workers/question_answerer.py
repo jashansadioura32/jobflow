@@ -85,10 +85,16 @@ class QuestionAnswerer:
         profile: Profile,
         client=None,
         model: str = "gpt-4o-mini",
+        resume_text=None,
     ) -> None:
         self.profile = profile
         self.client = client
         self.model = model
+        # The CV itself, when it could be read. Far richer than the profile
+        # summary: it carries the actual tools, employers and dates, so a
+        # question like "how many years of Snowflake" can be answered from
+        # evidence rather than invented.
+        self.resume_text = resume_text
 
     @property
     def enabled(self) -> bool:
@@ -109,7 +115,15 @@ Location: {p.location.city}, {p.location.country}
 Notice period: {comp.notice_period_days} days
 Work authorisation: {p.eligibility.work_authorization}
 Summary:
-{pro.summary.strip()}"""
+{pro.summary.strip()}{self._resume_block()}"""
+
+    def _resume_block(self) -> str:
+        """The CV text, when it could be extracted."""
+        text = str(self.resume_text or "").strip()
+        if not text:
+            return ""
+        return ("\n\nRESUME (the candidate's own CV -- prefer this over the "
+                f"summary above when they disagree)\n{text}")
 
     def _build_prompt(
         self, question: str, options: list[str] | None, posting: JobPosting | None

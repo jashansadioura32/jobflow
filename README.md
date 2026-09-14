@@ -119,6 +119,23 @@ go to real employers.
 Set any of them to `""` (empty) and JobFlow will stop and ask you instead of
 answering that one itself.
 
+### Optional: turn on the AI features
+
+Skip this unless you want them. Copy the secrets file and paste in your key:
+
+```bash
+copy .env.example .env          # Mac/Linux: cp .env.example .env
+```
+
+Open `.env` and replace `sk-your-key-here` with your own key from
+[platform.openai.com/api-keys](https://platform.openai.com/api-keys). Like
+your config files, `.env` never leaves your computer.
+
+With a key in place, adding `--use-llm` to a run does two things: it rates
+how well each job matches you, and it answers form questions your profile
+doesn't cover — **reading your resume PDF** to do it, so it can answer
+things like "how many years of Snowflake?" from what your CV actually says.
+
 Now check JobFlow understood everything:
 
 ```bash
@@ -267,13 +284,20 @@ plausible guess rather than stopping the whole application. Every guess is
 written down. Use `--review` if you'd rather decide yourself.
 
 **`--use-llm --live` lets an AI write answers.** For a question your profile
-doesn't cover, an AI writes one using your details and the job description —
-a better answer than the plain guess, but still a machine writing in your
-name. It is told to refuse rather than invent, and anything too long, or an
-option that isn't on the form, is thrown away. Each one is logged separately
-as `AI answered`, so run with `-v` and read them. This never happens under
-`--review` or in a practice run: when you are there to be asked, you get
-asked.
+doesn't cover, an AI writes one using your details, your resume and the job
+description — a better answer than the plain guess, but still a machine
+writing in your name. It is told to refuse rather than invent, and anything
+too long, or an option that isn't on the form, is thrown away. Each one is
+logged separately as `AI answered`, so run with `-v` and read them. This
+never happens under `--review` or in a practice run: when you are there to be
+asked, you get asked.
+
+**Your resume is read as plain text.** A PDF loses its layout when the text
+is pulled out, so columns and tables can run together. It is good enough to
+answer "have you used Snowflake", and it is not a faithful copy of your CV.
+A scanned or photographed resume yields nothing at all, and JobFlow quietly
+falls back to the summary in `profile.yaml` — so if the AI answers seem
+thin, check that your PDF has real text in it rather than an image.
 
 **JobFlow never sees your password.** You log in yourself, in your own browser.
 
@@ -292,7 +316,7 @@ top of `jobflow/adapters/linkedin.py`.
 pytest
 ```
 
-211 tests. They run against a fake browser and a stubbed AI client, so no
+220 tests. They run against a fake browser and a stubbed AI client, so no
 internet connection, no OpenAI key and no LinkedIn account are needed.
 
 ## Licence

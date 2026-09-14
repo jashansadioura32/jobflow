@@ -52,9 +52,14 @@ class LinkedInRunner:
         # person answers the question, which beats a generated answer.
         answerer = None
         if unattended and scorer is not None and getattr(scorer, "enabled", False):
+            from jobflow.core.resume import ResumeText
             from jobflow.workers.question_answerer import QuestionAnswerer
-            answerer = QuestionAnswerer(profile, client=scorer.client,
-                                        model=scorer.model)
+            answerer = QuestionAnswerer(
+                profile, client=scorer.client, model=scorer.model,
+                # Read lazily and once: extraction is wasted on a run where
+                # every question maps cleanly.
+                resume_text=ResumeText(profile.professional.resume_path),
+            )
         self.filler = EasyApplyFiller(browser, profile,
                                       guess_unmapped=unattended,
                                       answerer=answerer)

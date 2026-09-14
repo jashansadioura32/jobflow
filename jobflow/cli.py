@@ -25,6 +25,23 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 
 
+def _load_env() -> None:
+    """Read .env so an API key never has to be set by hand each session.
+
+    Values already in the environment win, so an exported key still
+    overrides the file. Missing python-dotenv is not an error: the key can
+    always be set the usual way.
+    """
+    env_path = ROOT / ".env"
+    if not env_path.exists():
+        return
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+    load_dotenv(env_path, override=False)
+
+
 def _setup_logging(verbose: bool) -> None:
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
@@ -354,6 +371,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _load_env()
     args = build_parser().parse_args(argv)
     # -v is accepted on either side of the subcommand; either one enables it.
     args.verbose = bool(args.verbose or getattr(args, "_root_verbose", False))

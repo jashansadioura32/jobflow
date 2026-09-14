@@ -148,3 +148,47 @@ def test_blank_question_is_not_sent(profile):
     client = FakeClient({"answer": "Yes", "confident": True})
     assert QuestionAnswerer(profile, client=client).answer("  ") is None
     assert client.prompts == []
+
+
+# ---------------- reading the resume ----------------
+
+def test_resume_text_reaches_the_prompt(profile, tmp_path):
+    """Regression: the CV must arrive as text, not as an object repr.
+
+    ResumeText defines __bool__, so a missing __str__ still passed the
+    truthiness guard and interpolated "<ResumeText object at 0x...>" into
+    the prompt. The model got a memory address instead of a CV, silently.
+    """
+    from jobflow.core.resume import ResumeText
+
+    cv = tmp_path / "cv.txt"
+    cv.write_text("Led a Snowflake migration for 3 years at Acme Corp.",
+                  encoding="utf-8")
+
+    client = FakeClient({"answer": "3", "confident": True})
+    a = QuestionAnswerer(profile, client=client, resume_text=ResumeText(cv))
+    a.answer("How many years of Snowflake?")
+
+    prompt = client.prompts[0]
+    assert "Snowflake migration for 3 years" in prompt
+    assert "ResumeText object" not in prompt
+    assert "RESUME" in prompt
+
+
+def test_no_resume_block_when_extraction_yields_nothing(profile, tmp_path):
+    """A scanned PDF degrades to the profile summary, not an empty header."""
+    from jobflow.core.resume import ResumeText
+
+    client = FakeClient({"answer": "Yes", "confident": True})
+    a = QuestionAnswerer(profile, client=client,
+                         resume_text=ResumeText(tmp_path / "missing.pdf"))
+    a.answer("Anything?")
+
+    assert "RESUME (" not in client.prompts[0]
+
+
+def test_answerer_works_without_any_resume(profile):
+    client = FakeClient({"answer": "Yes", "confident": True})
+    a = QuestionAnswerer(profile, client=client, resume_text=None)
+    assert a.answer("Anything?") == "Yes"
+    assert "RESUME (" not in client.prompts[0]

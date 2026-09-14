@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-llm = ["openai>=1.0"]
+llm = ["openai>=1.0", "pypdf>=4.0", "python-dotenv>=1.0"]
 browser = ["selenium>=4.20"]
 dev = ["pytest>=8.0", "pytest-cov>=5.0"]
 
