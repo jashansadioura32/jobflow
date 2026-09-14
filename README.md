@@ -1,180 +1,281 @@
 # JobFlow
 
-Screens LinkedIn jobs against rules you control, fills Easy Apply forms from
-your profile, and keeps an audit log of every decision.
+JobFlow applies to jobs on LinkedIn for you.
 
-**This submits real applications under your name.** Read the
-[Safety](#safety) section before your first live run.
+You tell it which job titles you want and what your details are. It searches
+LinkedIn, throws away the jobs that don't suit you, fills in the Easy Apply
+form, and sends it. It writes down every decision it made, so you can always
+check why it applied to something or why it skipped it.
+
+> **Please read this first.** JobFlow can send real job applications in your
+> name. Follow the steps below in order — step 5 practises with the browser
+> without sending anything, so you can see what it will do before it does it.
 
 ---
 
-## Requirements
+## What you need before you start
 
-- Python 3.11 or newer
-- Google Chrome
-- A LinkedIn account
+Three things:
 
-## Install
+1. **Python 3.11 or newer.** To check, open a terminal and type
+   `python --version`. If you get an error or a number below 3.11, install it
+   from [python.org](https://www.python.org/downloads/).
+2. **Google Chrome.**
+3. **A LinkedIn account.**
+
+Everything below is typed into a terminal (Command Prompt or PowerShell on
+Windows, Terminal on Mac).
+
+---
+
+## Step 1 — Download JobFlow
 
 ```bash
 git clone https://github.com/jashansadioura32/jobflow.git
 cd jobflow
-
-python -m venv .venv
-.venv\Scripts\activate          # Windows
-source .venv/bin/activate       # macOS / Linux
-
-pip install -e ".[dev,browser]"
-pip install -e ".[llm]"         # optional: AI fit scoring
 ```
 
-## Configure
+You are now inside the JobFlow folder. Every other command on this page is
+run from here.
 
-Copy both example files and edit them:
+## Step 2 — Create a private workspace for it
+
+This keeps JobFlow's code separate from anything else on your computer, so it
+can't break your other programs.
 
 ```bash
-cd config
-cp profile.example.yaml profile.yaml     # Windows: copy profile.example.yaml profile.yaml
-cp search.example.yaml search.yaml       # Windows: copy search.example.yaml search.yaml
-cd ..
+python -m venv .venv
 ```
 
-**`config/profile.yaml`** — your name, contact details, salary, notice
-period, and the absolute path to your resume PDF. Every value here is typed
-into real application forms.
+Then switch into it:
 
-**`config/search.yaml`** — the job titles to search for, location filter, and
-the rules for skipping postings.
+```bash
+.venv\Scripts\activate
+```
 
-Check it loaded correctly:
+On Mac or Linux, use this instead:
+
+```bash
+source .venv/bin/activate
+```
+
+You'll know it worked because `(.venv)` appears at the start of your terminal
+line. **You need to do this every time you open a new terminal to use
+JobFlow.**
+
+## Step 3 — Install it
+
+```bash
+pip install -e ".[dev,browser]"
+```
+
+This takes a minute or two. Ignore any warnings as long as the last line
+doesn't say "error".
+
+## Step 4 — Tell JobFlow about you
+
+JobFlow needs two files: one about you, one about the jobs you want. Ready-made
+examples are included, so you just copy them and fill in your own details.
+
+**On Windows:**
+
+```bash
+copy config\profile.example.yaml config\profile.yaml
+copy config\search.example.yaml config\search.yaml
+```
+
+**On Mac or Linux:**
+
+```bash
+cp config/profile.example.yaml config/profile.yaml
+cp config/search.example.yaml config/search.yaml
+```
+
+Now open those two new files in any text editor and replace the example values
+with yours.
+
+**`config/profile.yaml`** is about you — your name, email, phone, city,
+current and expected salary, notice period, and where your CV is saved.
+Whatever you write here gets typed into real application forms, so check it
+carefully. One value needs particular care:
+
+```yaml
+resume_path: "C:/Users/YourName/Documents/my_cv.pdf"
+```
+
+That has to be the full path to a PDF that really exists on your computer, and
+use forward slashes `/` even on Windows.
+
+**`config/search.yaml`** is about the jobs — which titles to search for, which
+country, and when to skip a job. You can change these any time.
+
+Now check JobFlow understood everything:
 
 ```bash
 jobflow validate
 ```
 
-This prints the values it will use and fails with a specific message if
-anything is missing or malformed. It will not pass until
-`professional.resume_path` points at a PDF that actually exists — that path
-is the file uploaded to every application, so it is checked at startup rather
-than mid-run.
+If it prints your details back to you, you're ready. If something is wrong, it
+tells you exactly which line to fix. The most common message is that it can't
+find your CV — that means the `resume_path` above is pointing at a file that
+isn't there.
 
-Both `profile.yaml` and `search.yaml` are gitignored, so your details stay on
-your machine.
+Your two files stay on your computer. They are never uploaded anywhere.
 
-## Run
+## Step 5 — Practise runs (nothing gets sent)
 
-**1. Screen sample postings — no browser, nothing sent:**
+**First, without even opening a browser:**
 
 ```bash
 jobflow screen data/sample_postings.json
 ```
 
-**2. Dry run against real LinkedIn — fills forms, sends nothing:**
+This runs five made-up job adverts through your rules and shows you which ones
+it would apply to and why it rejected the others. It's a quick way to see
+whether your settings make sense.
+
+**Then, with the real LinkedIn but still sending nothing:**
 
 ```bash
 jobflow apply --profile-dir ~/jobflow-chrome --saved-profile -v
 ```
 
-Chrome opens. Sign in to LinkedIn once, then press Enter in the terminal.
-JobFlow searches, screens, fills every form, and discards it. Use this to
-check that your answers are mapping correctly before anything is sent.
+Chrome opens. Log in to LinkedIn yourself, then come back to the terminal and
+press Enter. JobFlow now searches for your job titles, opens each one, and
+fills in the whole form — then throws it away without sending it.
 
-The `--saved-profile` flag keeps your login in a dedicated Chrome profile, so
-you only sign in on the first run.
+Watch what it types. The `-v` shows you every question it was asked and the
+answer it chose. If it fills something in wrongly, this is where you find out,
+with no harm done. **Don't skip this step.**
 
-**3. Live run — this sends applications:**
+You only have to log in once. `--saved-profile` remembers you for next time.
+
+## Step 6 — Apply for real
+
+When the practice run looks right:
 
 ```bash
 jobflow apply --profile-dir ~/jobflow-chrome --saved-profile --live
 ```
 
-Type `live` at the confirmation prompt.
+It asks you to type `live` to confirm. Then it applies to jobs for real.
 
-## Modes
+**Before your first live run, lower the limit.** Open `config/search.yaml` and
+set:
 
-| Command | What it does |
-|---|---|
-| `jobflow apply` | Dry run. Fills forms, discards them, sends nothing. |
-| `jobflow apply --live` | Fills and **submits automatically**. Guesses at questions your profile cannot answer. |
-| `jobflow apply --live --review` | Fills, then waits for **you** to click Submit in the browser. Never guesses. |
-
-While a run is in progress, a small **Quit** window floats above the browser.
-Click it to stop after the current application finishes. When the run ends —
-by Quit, by hitting the daily cap, or by finishing — you get a summary of
-what happened, in the terminal and in a window.
-
-## Useful flags
-
-| Flag | Effect |
-|---|---|
-| `-v` | Show each question and the answer chosen for it |
-| `--review` | Approve each application yourself (see Modes) |
-| `--review-timeout 300` | Seconds to wait for your decision, with `--review` |
-| `--use-llm` | Score job-description fit with an LLM (needs `OPENAI_API_KEY`) |
-| `--keep-open` | Leave Chrome open when the run ends |
-
-Press Ctrl+C at any time. You still get a summary.
-
-## Other commands
-
-```bash
-jobflow validate    # check your config and print the resolved values
-jobflow terms       # print the search plan in priority order
-jobflow report      # summarize the application log
+```yaml
+daily_application_cap: 5
 ```
 
-## Where your data goes
+Five applications is enough to spot a mistake. You can raise it once you trust
+it.
 
-| Path | Contents |
+---
+
+## Two ways to apply
+
+**`--live` sends applications by itself.** If a form asks something your
+profile doesn't cover, it picks a sensible-looking answer and carries on. It
+tells you every time it did this — look for the word "guessed" in the output.
+
+**`--live --review` puts you in charge.** It fills the form and then stops,
+leaving it open on screen. You read it and click Submit yourself, or close the
+box to skip that job. It never guesses in this mode.
+
+Use `--review` until you trust it.
+
+## Stopping a run
+
+A small **Quit** button floats on top of your screen while JobFlow is working.
+Click it and JobFlow finishes the application it's on, then stops — it never
+abandons a form half-filled. Pressing Ctrl+C in the terminal also works.
+
+It stops on its own when it reaches your daily limit, or when LinkedIn says
+you've applied to enough jobs for one day.
+
+However it ends, you get a summary — how many it applied to, how many it
+skipped and why — both in the terminal and in a window.
+
+## Handy extras
+
+| Add this | To do this |
 |---|---|
-| `data/evaluations_*.jsonl` | Every decision, with the evidence behind it |
-| `data/applications.csv` | One row per posting evaluated |
+| `-v` | See every question and the answer JobFlow chose |
+| `--review` | Check each application yourself before it's sent |
+| `--review-timeout 300` | Wait 5 minutes for your decision instead of 10 |
+| `--keep-open` | Leave Chrome open when it finishes |
+| `--use-llm` | Let an AI rate how well each job matches you (needs an OpenAI key) |
 
-Both are gitignored. To find out why a job was skipped, search the evidence
-log for its title — each record lists the rule that rejected it.
+Other things you can run:
 
-## Safety
+```bash
+jobflow validate    # check your details are correct
+jobflow terms       # list the job titles it will search for, in order
+jobflow report      # how many jobs you've applied to so far
+```
 
-**Start with a low cap.** Set `daily_application_cap: 5` in `search.yaml` for
-your first live run. If an answer is mapped wrongly, you would rather find
-out after five applications than forty.
+## Checking what it did
 
-**`--live` guesses.** With no human in the loop, a required question your
-profile cannot answer gets a plausible guess rather than blocking the
-application. Every guess is logged — run with `-v` and check them. Use
-`--live --review` if you want to approve each application yourself.
+JobFlow keeps two files in the `data` folder:
 
-**JobFlow never handles your password.** You sign in manually; the session is
-reused from a Chrome profile on your machine.
+- **`applications.csv`** — one line per job, openable in Excel
+- **`evaluations_*.jsonl`** — the full reasoning behind every decision
 
-**Automating applications may conflict with LinkedIn's terms of service**, and
-accounts do get restricted. That risk is yours to accept.
+To find out why a job was skipped, search these for the job title. Each entry
+names the exact rule that rejected it. Both files stay on your computer.
 
-## Troubleshooting
+## When something goes wrong
 
-**`Missing config file: profile.yaml`** — you skipped the copy step in
-[Configure](#configure).
+**"Missing config file: profile.yaml"**
+You missed Step 4. Copy the two example files.
 
-**`no Easy Apply button`** in the log — the posting is an external-apply job,
-or LinkedIn changed its markup. Selectors live in the `SEL` dict at the top of
-`jobflow/adapters/linkedin.py`.
+**"resume not found"**
+The `resume_path` in `config/profile.yaml` is pointing at a file that isn't
+there. Check the spelling and use forward slashes `/`.
 
-**Chrome won't start** — close all Chrome windows, or use `--saved-profile`
-with a `--profile-dir` that no other Chrome instance is using.
+**Chrome won't open**
+Close every Chrome window and try again. Chrome won't let two programs share
+one profile.
 
-**A question was answered wrongly** — add a rule to
-`jobflow/core/answers.py`. Rules are ordered and the first match wins, so put
-specific patterns before general ones.
+**"no Easy Apply button" appears a lot**
+Those jobs send you to the company's own website instead, which JobFlow can't
+fill in. It skips them on purpose. If it happens on *every* job, LinkedIn has
+probably changed its website — see the note at the bottom of this page.
 
-## Tests
+**It answered a question wrongly**
+Open `jobflow/core/answers.py` and add a rule for that question. The rules are
+checked from top to bottom and the first match wins, so put specific ones
+above general ones.
+
+## Things you should know
+
+**It applies in your name.** Every application carries your name and your CV.
+Practise with Step 5 first.
+
+**`--live` guesses.** When nobody is watching, an unanswerable question gets a
+plausible guess rather than stopping the whole application. Every guess is
+written down. Use `--review` if you'd rather decide yourself.
+
+**JobFlow never sees your password.** You log in yourself, in your own browser.
+
+**LinkedIn may not like this.** Automated applications can go against
+LinkedIn's terms of service, and accounts do sometimes get restricted. That's
+your decision to make.
+
+**LinkedIn changes its website.** JobFlow finds buttons by looking for them on
+the page, so a redesign can break it. If applications suddenly stop working,
+that's usually why. The parts that need updating are all in one place, at the
+top of `jobflow/adapters/linkedin.py`.
+
+## For developers
 
 ```bash
 pytest
 ```
 
-156 tests, no network and no LinkedIn account required — the whole
-search-to-submit loop runs against an in-memory fake browser.
+157 tests. They run against a fake browser, so no internet connection and no
+LinkedIn account are needed.
 
-## License
+## Licence
 
-MIT — see [LICENSE](LICENSE).
+MIT — free to use and change. See [LICENSE](LICENSE).
