@@ -652,19 +652,24 @@ class EasyApplyFiller:
                 report.aborted_reason = "no next/review/submit control found"
                 return report
 
-            # A control that does not advance the form is a loop: clicking
-            # the same button twelve times is how the Reapply dialog burned
-            # a whole run. Stop as soon as the step stops changing.
-            signature = (nxt.attr("aria-label"), nxt.text, report.steps)
-            if signature[:2] == getattr(self, "_last_control", None):
-                report.aborted_reason = (
-                    f"form did not advance past {nxt.text or 'the same control'!r}")
-                return report
-            self._last_control = signature[:2]
+            # What proves a step advanced is the form's *content* changing,
+            # not the button's label: a genuine multi-step Easy Apply shows
+            # "Next" on every step, so comparing labels aborted perfectly
+            # good applications after step one. The modal's own text is the
+            # cheapest thing that differs between steps.
+            before = " ".join(self.browser.text_of(modal).split())
 
             self.browser.scroll_into_view(nxt)
             self.browser.click(nxt)
             self.browser.sleep(1.0)
+
+            after = " ".join(self.browser.text_of(modal).split())
+            if after and after == before:
+                # Same questions, same text, after a click: the form is not
+                # moving. This is the Reapply dialog and anything like it.
+                report.aborted_reason = (
+                    f"form did not advance past {nxt.text or 'the same control'!r}")
+                return report
 
         report.aborted_reason = f"exceeded {self.MAX_STEPS} steps"
         return report

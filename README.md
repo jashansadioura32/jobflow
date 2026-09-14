@@ -334,7 +334,7 @@ top of `jobflow/adapters/linkedin.py`.
 pytest
 ```
 
-234 tests. They run against a fake browser and a stubbed AI client, so no
+236 tests. They run against a fake browser and a stubbed AI client, so no
 internet connection, no OpenAI key and no LinkedIn account are needed.
 
 ## Licence

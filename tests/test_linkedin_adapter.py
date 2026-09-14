@@ -637,11 +637,12 @@ def test_step_loop_is_bounded(profile):
     b.add_page(page)
     b.goto(page.url)
     report = EasyApplyFiller(b, profile).run(submit=True)
-    # Stops as soon as the same control reappears, rather than clicking it
-    # MAX_STEPS times: a form that does not advance is a loop, and burning
-    # twelve clicks on LinkedIn's Reapply dialog is how that showed up.
-    assert report.steps < EasyApplyFiller.MAX_STEPS
-    assert "did not advance" in report.aborted_reason
+    # This fixture's modal renders no text at all, so the content-change
+    # guard cannot judge it and MAX_STEPS remains the backstop. Both limits
+    # matter: the guard catches a static dialog quickly, MAX_STEPS catches
+    # anything the guard cannot see.
+    assert report.steps == EasyApplyFiller.MAX_STEPS
+    assert "exceeded" in report.aborted_reason
     assert report.submitted is False
 
 
@@ -802,3 +803,66 @@ def test_a_normal_easy_apply_button_is_still_clicked(profile):
     report = EasyApplyFiller(b, profile).run(submit=False)
     assert report.aborted_reason is None
     assert report.reached_submit is True
+
+
+# ---------------- multi-step forms vs genuine loops ----------------
+
+class _SteppingBrowser(FakeBrowser):
+    """A modal whose text changes on each click, like a real multi-step form."""
+
+    def __init__(self, page, steps):
+        super().__init__()
+        self.add_page(page)
+        self.goto(page.url)
+        self._texts = list(steps)
+        self._idx = 0
+
+    def text_of(self, element):
+        if element.attr("data-selector") == "#modal":
+            return self._texts[min(self._idx, len(self._texts) - 1)]
+        return super().text_of(element)
+
+    def click(self, element):
+        super().click(element)
+        if element.text in ("Next", "Review"):
+            self._idx += 1
+
+
+def _stepping_page(with_submit=False):
+    els = {
+        SEL["easy_apply_button"]: [Element(handle=None, text="Easy Apply")],
+        SEL["modal"]: [Element(handle=None, attributes={"data-selector": "#modal"})],
+        SEL["modal_next"]: [Element(handle=None, text="Next")],
+    }
+    if with_submit:
+        els[SEL["modal_submit"]] = [Element(handle=None, text="Submit application")]
+    return FakePage(url="https://www.linkedin.com/jobs/search/", elements=els)
+
+
+def test_a_multi_step_form_is_not_mistaken_for_a_loop(profile):
+    """Regression: "Next" appears on every step of a real Easy Apply form.
+
+    Comparing button labels aborted the application after step one, which
+    silently cost real submissions. Only unchanging form *content* is a loop.
+    """
+    b = _SteppingBrowser(_stepping_page(),
+                         ["Step one questions", "Step two questions",
+                          "Step three questions", "Step four questions"])
+    report = EasyApplyFiller(b, profile).run(submit=False)
+
+    # The old label-based guard stopped at step 2, because the second "Next"
+    # looked identical to the first. Walking past it is the whole fix.
+    # (The run still ends once the scripted steps run out and the text
+    # stops changing -- that is the guard working, just later.)
+    assert report.steps >= 4
+    assert b.clicks.count("Next") >= 3
+
+
+def test_a_form_that_never_changes_is_still_caught(profile):
+    """The Reapply dialog: same text no matter how often you click."""
+    b = _SteppingBrowser(_stepping_page(), ["Reapply to this job?"])
+    report = EasyApplyFiller(b, profile).run(submit=False)
+
+    assert "did not advance" in report.aborted_reason
+    assert report.steps < EasyApplyFiller.MAX_STEPS
+    assert report.submitted is False
