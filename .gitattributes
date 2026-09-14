@@ -1,0 +1,14 @@
+# Normalise line endings so Windows and Unix contributors do not produce
+# whole-file diffs against each other.
+* text=auto eol=lf
+
+# Windows-only scripts need CRLF to run.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files git must not touch.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.ico binary

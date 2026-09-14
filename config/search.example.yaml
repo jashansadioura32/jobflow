@@ -1,0 +1,63 @@
+# JobFlow — search strategy
+#
+# Copy this file to `search.yaml` and edit it for your own search.
+#
+#   cp search.example.yaml search.yaml        (Windows: copy ...)
+
+# Hard ceiling on submissions per run. Start small on your first live run:
+# if an answer is mapped wrongly, you would rather find out after 3
+# applications than after 40.
+daily_application_cap: 10
+
+# Applications attempted per term before moving to the next one. The search
+# reads only the first page of results (~25), so a value above that is never
+# reached.
+applications_per_term: 25
+
+# Terms are evaluated in order, so the closest-matching roles consume the
+# daily budget first. Tier names appear in the audit log.
+tiers:
+  - name: "core"                   # your current title and closest matches
+    terms:
+      - "Your Job Title"
+      - "A Close Variant"
+
+  - name: "adjacent"               # roles one step out
+    terms:
+      - "An Adjacent Title"
+
+filters:
+  location: "Your Country"
+  date_posted: "Past week"         # "Any time" | "Past month" | "Past week" | "Past 24 hours"
+  easy_apply_only: true            # JobFlow can only fill Easy Apply forms
+  experience_levels:
+    - "Mid-Senior level"
+  job_types: []                    # e.g. ["Full-time", "Contract"]
+  workplace_types: []              # e.g. ["Remote", "Hybrid"]
+
+# Deterministic rejection rules, applied before any LLM scoring so the cheap
+# checks run first. Matched case-insensitively as whole phrases.
+exclusions:
+  # Work-authorization blockers — roles you are not eligible for.
+  description_blockers:
+    - "US Citizen"
+    - "USA Citizen"
+    - "Only US Citizens"
+    - "must be located in the US"
+    - "must be authorized to work in the US"
+
+  # Clearance phrases. Deliberately specific: a bare "secret" match
+  # false-positives on "Company Secretary" and "trade secrets policy".
+  clearance_blockers:
+    - "security clearance"
+    - "secret clearance"
+    - "top secret"
+    - "polygraph"
+
+  companies: []                    # exact company names to always skip
+
+# A posting asking for more than years_of_experience + tolerance is skipped.
+# The tolerance widens by 2 more years when has_masters is true.
+experience_gate:
+  enabled: true
+  tolerance_years: 2

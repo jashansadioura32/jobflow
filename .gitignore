@@ -1,0 +1,46 @@
+# --- your personal configuration -------------------------------------------
+# These hold your name, phone, salary and address. The .example files are
+# committed instead; copy them and fill in your own details.
+config/profile.yaml
+config/search.yaml
+
+# --- your documents ---------------------------------------------------------
+*.pdf
+*.docx
+all resumes/
+resumes/
+
+# --- run artifacts ----------------------------------------------------------
+# Evidence logs and the application history contain the jobs you applied to.
+data/*.jsonl
+data/applications.csv
+logs/
+*.log
+
+# --- browser profile --------------------------------------------------------
+# Contains a live LinkedIn session. Never commit it.
+.chrome-profile/
+jobflow-chrome/
+
+# --- python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# --- tooling ----------------------------------------------------------------
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# --- editors and OS ---------------------------------------------------------
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

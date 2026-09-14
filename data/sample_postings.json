@@ -1,0 +1,12 @@
+[
+ {"job_id":"101","title":"Data Quality Lead","company":"Nordisk Analytics","location":"Gurugram, India","url":"https://example.com/101",
+  "description":"We seek a Data Quality Lead with 5+ years of experience in data governance, dbt and Snowflake. You will partner with the Company Secretary on compliance reporting and own our data quality framework."},
+ {"job_id":"102","title":"Senior Data Engineer","company":"Beacon Systems","location":"Remote","url":"https://example.com/102",
+  "description":"Requires 12+ years of experience building distributed pipelines in Scala and Spark."},
+ {"job_id":"103","title":"Analytics Manager","company":"Helios Federal","location":"Virginia, USA","url":"https://example.com/103",
+  "description":"Must hold an active top secret clearance. 6 years experience required."},
+ {"job_id":"104","title":"AI Product Manager","company":"Lumen Labs","location":"Bengaluru, India","url":"https://example.com/104",
+  "description":"Open to US Citizen applicants only. Build LLM agent products."},
+ {"job_id":"105","title":"Data Product Manager","company":"Trellis","location":"Gurugram, India","url":"https://example.com/105",
+  "description":"8+ years preferred. Own our enterprise data product roadmap, governance and trade secrets policy. Snowflake and Power BI."}
+]

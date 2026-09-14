@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jobflow"
+version = "0.1.0"
+description = "Human-in-the-loop job application screening with deterministic checks and bounded LLM scoring"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Jashan Sadioura", email = "jashanpreet.sadioura@gmail.com" }]
+keywords = ["job-search", "automation", "llm", "agents", "data-quality"]
+
+dependencies = [
+    "pydantic>=2.6",
+    "pydantic[email]>=2.6",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+llm = ["openai>=1.0"]
+browser = ["selenium>=4.20"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0"]
+
+[project.scripts]
+jobflow = "jobflow.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["jobflow*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["jobflow"]

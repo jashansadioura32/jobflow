@@ -1,0 +1,60 @@
+# JobFlow — candidate profile
+#
+# Copy this file to `profile.yaml` and replace every value with your own.
+# `profile.yaml` is gitignored, so your details never reach the repository.
+#
+#   cp profile.example.yaml profile.yaml      (Windows: copy ...)
+#
+# Every value here is written verbatim into real application forms, so a
+# wrong value reaches a real employer. Check it before your first live run.
+
+identity:
+  first_name: "Your"
+  middle_name: ""
+  last_name: "Name"
+  email: "you@example.com"
+  phone: "9999999999"              # digits only, no spaces or dashes
+  phone_country_code: "+91"
+  linkedin_url: "https://www.linkedin.com/in/your-profile/"
+  website: ""                      # portfolio or blog; "" if you have none
+
+location:
+  city: "Your City"
+  street: "Your Street"
+  state: "Your State"
+  zipcode: "000000"
+  country: "Your Country"
+
+professional:
+  headline: "Your LinkedIn headline"
+  years_of_experience: 5
+  has_masters: false               # true adds a 2-year experience tolerance
+  recent_employer: "Your Employer"
+  # Absolute path to the PDF you want uploaded. Loading fails if it is missing.
+  resume_path: "C:/path/to/your_resume.pdf"
+  summary: |
+    A few paragraphs about your work. Used for "tell us about yourself" and
+    cover-letter style questions.
+
+compensation:
+  current_ctc: 1000000             # annual, in whole units of your currency
+  desired_salary: 1200000
+  currency: "INR"
+  notice_period_days: 30
+
+eligibility:
+  requires_visa_sponsorship: false
+  # One of LinkedIn's citizenship options, matched against the dropdown.
+  work_authorization: "Non-citizen allowed to work for any employer"
+  has_security_clearance: false
+
+# Optional EEO answers. Use "Decline" to decline to self-identify.
+demographics:
+  gender: "Decline"
+  ethnicity: "Decline"
+  disability_status: "Decline"
+  veteran_status: "Decline"
+
+# Fallback for numeric self-rating questions ("on a scale of 1-10...")
+defaults:
+  confidence_level: 8
